@@ -1,75 +1,169 @@
-# Интеграция с Open Exchange Rates API
+# Тестовое задание
 
-Проект представляет собой простое Yii2-приложение для получения и отображения курсов валют с сервиса openexchangerates.org.
+## Решение задания 1: SQL-запрос
 
-## Функциональность
+**Условие задачи:**  
+Необходимо найти всех посетителей библиотеки, которые:
+1. Возраст от 7 до 17 лет
+2. Взяли ровно две книги одного автора
+3. Держали каждую книгу не более 14 дней
 
-- Получение текущего курса валют
-- Поддержка нескольких HTTP-клиентов (cURL, yii\httpclient)
-- DTO-модель для структурированных данных
-- Покрытие unit-тестами
-
-## Быстрый старт
-
-1. Клонируйте репозиторий  
-```bash
-   git clone https://github.com/D4-E/yii2-exchange-rates.git
-   cd yii2-exchange-rates
+**Структура таблиц:**
+```sql
+users (id, first_name, last_name, birthday)
+books (id, name, author)
+user_books (id, user_id, book_id, get_date, return_date)
 ```
 
-2. Укажите API-ключ
+**Решение 1:**
 
-Скопируйте .env.example в .env:  
-```bash
-   cp .env.example .env
-```  
-И добавьте свой ключ OpenExchangeRates в `OPENEXCHANGERATES_APP_ID`.
-
-3. Запустите приложение через Docker  
-```bash
-   docker-compose up -d --build
+```sql
+SELECT
+    u.id AS ID,
+    CONCAT(u.first_name, ' ', u.last_name) AS Name,
+    MIN(b.author) AS Author,
+    GROUP_CONCAT(b.name ORDER BY b.name SEPARATOR ', ') AS Books
+FROM users u
+JOIN user_books ub ON u.id = ub.user_id
+JOIN books b ON b.id = ub.book_id
+WHERE TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) BETWEEN 7 AND 17
+    AND DATEDIFF(ub.return_date, ub.get_date) <= 14
+GROUP BY u.id
+HAVING COUNT(*) = 2
+    AND COUNT(DISTINCT b.id) = 2
+    AND COUNT(DISTINCT b.author) = 1;
 ```
 
-4. Установите зависимости  
-```bash
-   docker-compose exec php composer install
+**Решение 2:**
+
+```sql
+WITH user_books_filtered AS (
+   SELECT
+      ub.*,
+      u.first_name,
+      u.last_name,
+      b.name AS book_name,
+      b.author
+   FROM user_books AS ub
+   JOIN users AS u ON u.id = ub.user_id
+   JOIN books AS b ON b.id = ub.book_id
+   WHERE TIMESTAMPDIFF(YEAR, u.birthday, CURDATE()) BETWEEN 7 AND 17
+   AND DATEDIFF(ub.return_date, ub.get_date) <= 14
+)
+SELECT
+   user_id AS ID,
+   CONCAT(first_name, ' ', last_name) AS Name,
+   MIN(author) AS Author,
+   GROUP_CONCAT(book_name ORDER BY book_name) AS Books
+FROM user_books_filtered
+GROUP BY user_id
+HAVING COUNT(*) = 2
+   AND COUNT(DISTINCT author) = 1;
 ```
 
-## Тестирование
+## Решение задания 2: JSON API для обмена валют
 
-Для запуска unit-тестов:  
+### Условие задачи
+
+1. **Задача**  
+   Реализовать микросервис на PHP 8 для:
+   - Получения курсов валют относительно USD
+   - Конвертации между валютами
+   - Добавления 2% комиссии к курсам
+
+2. **Требования**:
+   - Работа в Docker-контейнере
+   - Bearer-аутентификация (64-символьный токен)
+   - Использование API CoinGate (merchant) или CoinCap
+   - JSON-ответы для всех сценариев
+
+**Формат запроса:**  
+```<host>/api/v1?method=<имя_метода>&<параметр>=<значение>```
+
+### Методы API
+
+**1. rates (GET)**  
+Получение курсов валют с комиссией 2%
+
 ```bash
-   docker-compose exec php vendor/bin/codecept run
+curl -H "Authorization: Bearer YOUR_TOKEN" 
+   "http://localhost:8080/api/v1?method=rates&currency=USD,EUR"
 ```
 
-## Интерфейс
+Параметр | Описание
+--- | ---
+currency (опц.) | Фильтр по валютам (через запятую)
 
-Откройте в браузере: http://localhost:8080
+**2. convert (POST)**  
+Конвертация валюты
 
-Если данные недоступны — отобразится соответствующее сообщение.
+```bash
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" 
+  -H "Content-Type: application/json" 
+  -d '{"currency_from":"USD","currency_to":"BTC","value":"1.00"}' 
+  http://localhost:8080/api/v1?method=convert
+```
 
-## Структура проекта
+Параметры:
+- ```currency_from```: Исходная валюта
+- ```currency_to```: Целевая валюта
+- ```value```: Сумма (мин. 0.01)
 
-- `app/infrastructure/http/` — реализация HTTP-клиентов (CurlClient, YiiHttpClient)
-- `app/dto/ExchangeRatesDto.php` — DTO-объект для курсов валют
-- `app/components/OpenExchangeRates.php` — компонент для получения курса валют
-- `tests/` — unit-тесты
+### Быстрый старт
 
-## Получение API-ключа
+1. Подготовка окружения:
+```bash
+git clone https://github.com/D4-E/yii2-currency-exchange-api.git
+cd yii2-currency-exchange-api
+cp .env.example .env
+# задайте API_TOKEN в .env
+```
 
-1. Перейдите на [https://openexchangerates.org/signup/free](https://openexchangerates.org/signup/free)
-2. Зарегистрируйтесь и получите ключ
-3. Укажите его в `.env`:  
-`OPENEXCHANGERATES_APP_ID=your_api_key`
+2. Запуск сервиса:
+```bash
+docker-compose up -d --build
+```
 
-## Используемый стек
+### Тестирование
 
-- PHP 8.2
-- Yii2 (basic template)
-- Codeception
-- Docker (PHP + Nginx)
-- Composer
+**Команды для тестов:**
+```bash
+# Unit-тесты
+docker-compose exec php vendor/bin/codecept run unit
 
-## Скриншот
+# Functional-тесты
+docker-compose exec php vendor/bin/codecept run functional
 
-![Главная страница](screenshot.png)
+# Все тесты
+docker-compose exec php vendor/bin/codecept run
+```
+
+**Покрытие тестами:**
+- Авторизация по токену
+- Корректность расчета комиссии
+- Валидация входных параметров
+- Обработка ошибок API
+- Форматы JSON-ответов
+
+### Примеры ответов
+
+**Успешный запрос (200):**
+```json
+{
+  "status": "success",
+  "code": 200,
+  "data": {
+    "USD": "1.00",
+    "EUR": "0.92"
+  }
+}
+```
+
+**Ошибка авторизации (403):**
+```json
+{
+  "status": "error",
+  "code": 403,
+  "message": "Invalid token"
+}
+```
