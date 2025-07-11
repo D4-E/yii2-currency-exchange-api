@@ -1,0 +1,65 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #111;
+    color: #eaeaea;
+    font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.container {
+    max-width: 960px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #ffffff;
+}
+
+.meta {
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: #bbbbbb;
+}
+
+.rates {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+}
+
+.rate-card {
+    background-color: #181818;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    transition: transform 0.2s ease, background-color 0.3s ease;
+}
+
+.rate-card:hover {
+    transform: translateY(-4px);
+    background-color: #1f1f1f;
+}
+
+.currency {
+    font-size: 1.1rem;
+    color: #66b3ff;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.value {
+    font-size: 1rem;
+    color: #f0f0f0;
+}
+
+.error-message {
+    background-color: #2a2a2a;
+    border-left: 4px solid #ff5e5e;
+    padding: 16px;
+    border-radius: 8px;
+    color: #ffb3b3;
+    font-size: 1rem;
+}
